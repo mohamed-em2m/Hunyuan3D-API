@@ -6,6 +6,7 @@ import logging
 import threading
 from pathlib import Path
 from typing import Optional
+from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -63,7 +64,6 @@ class ModelManager:
             print("Loading Hunyuan3D pipeline...")
             try:
                 # Import here to avoid issues if package isn't installed
-                from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
                 self._pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
                     'tencent/Hunyuan3D-2'
                 )
