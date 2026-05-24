@@ -1,91 +1,153 @@
-# 3D Model Generator API
+# Hunyuan3D API
 
-This project provides a **FastAPI**-based REST API to generate 3D models from images using the **Hunyuan3D** pipeline. It includes a Docker setup for easy deployment, support for **ngrok** tunneling, and background cleanup of temporary files.
+> FastAPI-based REST API for generating 3D GLB models from images using the **Hunyuan3D** pipeline.
 
 ---
 
-## 📦 Features
+## ✨ Features
 
-- **FastAPI** server with CORS support
-- **Hunyuan3D** pipeline for 3D mesh generation
-- **Trimesh** for mesh handling and GLB export
-- **ngrok** integration for public URL tunneling
-- **Async file handling** via `aiofiles`
-- **Background cleanup** of temporary uploads
-- **Docker** multi-stage build for a lean production image
+| Feature | Detail |
+|---|---|
+| **3D generation** | Hunyuan3D pipeline → `.glb` mesh output |
+| **REST API** | FastAPI with OpenAPI docs at `/docs` |
+| **Configuration** | [dynaconf](https://www.dynaconf.com/) — TOML + env-vars + secrets file |
+| **Package management** | [uv](https://docs.astral.sh/uv/) |
+| **Docker** | Multi-stage build with uv |
+| **Structured logging** | Python `logging` throughout, log-level from settings |
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Clone the repository
+### Prerequisites
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed
+- Python 3.12
+- CUDA-capable GPU (recommended) — CPU inference is supported but very slow
+- `hy3dgen` built from source (see **hy3dgen setup** below)
+
+### 1. Clone & enter the project
+
 ```bash
-git clone https://github.com/your-org/your-repo.git
-cd your-repo
+git clone https://github.com/your-org/hunyuan3d-api.git
+cd hunyuan3d-api
 ```
 
-### 2. Run with Docker
+### 2. Install dependencies
 
-1. **Build the Docker image**:
-   ```bash
-docker build -t 3dmodel-api .
+```bash
+uv sync
 ```
-2. **Run the container**:
-   ```bash
-docker run -p 8000:8000 3dmodel-api
-```
-3. **Access API docs** at: <http://localhost:8000/docs>
 
-### 3. Run Locally (without Docker)
+### 3. Configure
 
-1. **Create and activate** a virtual environment:
-   ```bash
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+Copy the example env file and edit as needed:
+
+```bash
+cp .env.example .env
 ```
-2. **Install dependencies**:
-   ```bash
-pip install -r requirements.txt
+
+Or create a `.secrets.toml` (gitignored) for tokens:
+
+```toml
+# .secrets.toml
+[default]
+[default.ngrok]
+authtoken = "your_ngrok_token"
 ```
-3. **Start the server**:
-   ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000
+
+Set the active environment (default is `default`):
+
+```bash
+export ENV_FOR_DYNACONF=development   # enables debug logging + auto-reload
 ```
-4. **Explore** at: <http://localhost:8000/docs>
+
+### 4. Run the API
+
+```bash
+# Via the installed CLI script
+uv run hunyuan3d-api
+
+# Or via uvicorn directly
+uv run uvicorn hunyuan3d_api.main:app --reload
+
+# Or via the root shim
+uv run python main.py
+```
+
+API docs: <http://localhost:8000/docs>
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration Reference
 
-- **TEMP_DIR**: Default is `/content/temp_3d`. Change in `main.py` if needed.
-- **NGROK**: For tunneling (e.g., Colab), set your ngrok token:
-  ```bash
-  export NGROK_AUTHTOKEN=<your-token>
-  ```
+All settings live in [`config/settings.toml`](config/settings.toml).
+Override any value without touching the file:
+
+| Method | Example |
+|---|---|
+| `.env` file | `HUNYUAN3D__SERVER__PORT=9000` |
+| `.secrets.toml` | `[default.ngrok] authtoken = "..."` |
+| Shell env var | `export HUNYUAN3D__MODEL__DEVICE=cpu` |
+| `ENV_FOR_DYNACONF` | `development` / `production` |
+
+Key settings:
+
+```toml
+[default.server]
+host = "0.0.0.0"
+port = 8000
+
+[default.model]
+pretrained_id = "tencent/Hunyuan3D-2"
+device = "auto"          # auto | cuda | cpu
+
+[default.storage]
+temp_dir = "./temp_3d"
+max_file_size_mb = 10
+
+[default.ngrok]
+enabled = false
+authtoken = ""           # set in .secrets.toml
+```
 
 ---
 
-## 🛠️ Project Structure
+## 📁 Project Structure
 
-```text
-├── Dockerfile                # Multi-stage Docker build
-├── requirements.txt          # Python dependencies
-├── main.py                   # FastAPI application
-├── temp_3d/                  # Runtime uploads & outputs
-└── README.md                 # Project documentation
+```
+hunyuan3d-api/
+├── hunyuan3d_api/              # Main Python package
+│   ├── config/
+│   │   └── __init__.py         # dynaconf Settings object
+│   ├── core/
+│   │   ├── model_manager.py    # Thread-safe pipeline singleton
+│   │   └── utils.py            # File validation & cleanup helpers
+│   ├── api/
+│   │   └── routes.py           # FastAPI APIRouter (all endpoints)
+│   ├── app.py                  # FastAPI app factory
+│   └── main.py                 # Package entrypoint + uvicorn launcher
+├── config/
+│   └── settings.toml           # dynaconf base configuration
+├── .secrets.toml               # Secret overrides (gitignored)
+├── .env.example                # Documented env-var template
+├── main.py                     # Root shim for backwards-compat
+├── Dockerfile                  # Multi-stage Docker build
+└── pyproject.toml              # uv project + ruff/mypy/pytest config
 ```
 
 ---
 
 ## 🖼️ API Endpoints
 
-| Method | Path           | Description                             |
-| ------ | -------------- | --------------------------------------- |
-| GET    | `/`            | Basic health check                      |
-| GET    | `/health`      | Detailed health status (pipeline, GPU)  |
-| POST   | `/generate-3d` | Upload an image and receive a `.glb`    |
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Service info & health check |
+| `GET` | `/health` | Pipeline status, CUDA info |
+| `POST` | `/generate-3d` | Upload image → receive `.glb` |
+| `GET` | `/docs` | Interactive OpenAPI documentation |
 
-### Example: Generate 3D Model
+### Example: generate a 3D model
 
 ```bash
 curl -X POST "http://localhost:8000/generate-3d" \
@@ -95,8 +157,69 @@ curl -X POST "http://localhost:8000/generate-3d" \
 
 ---
 
-## 🧹 Cleanup
+## 🐳 Docker
 
-Temporary files are automatically removed in the background after each request.
+```bash
+# Build
+docker build -t hunyuan3d-api .
 
+# Run
+docker run -p 8000:8000 \
+  -e HUNYUAN3D__NGROK__AUTHTOKEN=your_token \
+  hunyuan3d-api
+```
 
+> **Note:** The Docker build compiles `hy3dgen` from source (the ComfyUI wrapper).
+> First build will take several minutes.
+
+---
+
+## 🔧 hy3dgen Setup (local, non-Docker)
+
+`hy3dgen` is not published on PyPI. Install it from source:
+
+```bash
+# 1. Clone the ComfyUI wrapper (contains hy3dgen)
+git clone https://github.com/kijai/ComfyUI-Hunyuan3DWrapper.git
+
+# 2. Build and install the custom rasterizer
+cd ComfyUI-Hunyuan3DWrapper/hy3dgen/texgen/custom_rasterizer
+python setup.py bdist_wheel
+pip install dist/*.whl
+
+# 3. Install remaining hy3dgen deps
+cd ../../../..
+pip install -r ComfyUI-Hunyuan3DWrapper/requirements.txt
+
+# 4. Install Hunyuan3D-2
+git clone https://github.com/Tencent/Hunyuan3D-2.git
+cd Hunyuan3D-2 && python setup.py install
+```
+
+---
+
+## 🧹 Dev Tools
+
+```bash
+# Lint
+uv run ruff check .
+
+# Format
+uv run ruff format .
+
+# Type-check
+uv run mypy hunyuan3d_api/
+
+# Tests
+uv run pytest
+```
+
+---
+
+## 🧩 Environments
+
+| `ENV_FOR_DYNACONF` | Log level | Reload | Workers |
+|---|---|---|---|
+| `default` | INFO | off | 1 |
+| `development` | DEBUG | on | 1 |
+| `production` | WARNING | off | 4 |

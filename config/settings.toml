@@ -1,0 +1,95 @@
+# =============================================================================
+# Hunyuan3D API — dynaconf settings
+#
+# Environments:
+#   default     → always applied as a baseline
+#   development → activated when ENV_FOR_DYNACONF=development
+#   production  → activated when ENV_FOR_DYNACONF=production
+#
+# Override any value via environment variables prefixed with HUNYUAN3D__
+# Example: HUNYUAN3D__SERVER__PORT=9000
+# =============================================================================
+
+[default]
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+[default.app]
+name        = "Hunyuan3D API"
+version     = "0.1.0"
+description = "Generate 3D models from images using the Hunyuan3D pipeline"
+debug       = false
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+[default.logging]
+level  = "INFO"
+format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+# ---------------------------------------------------------------------------
+# HTTP Server (uvicorn)
+# ---------------------------------------------------------------------------
+[default.server]
+host   = "0.0.0.0"
+port   = 8000
+reload = false
+workers = 1
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+[default.cors]
+allow_origins     = ["*"]
+allow_credentials = true
+allow_methods     = ["*"]
+allow_headers     = ["*"]
+
+# ---------------------------------------------------------------------------
+# File storage
+# ---------------------------------------------------------------------------
+[default.storage]
+temp_dir        = "./temp_3d"
+max_file_size_mb = 10
+supported_formats = ["jpg", "jpeg", "png", "webp", "bmp"]
+
+# ---------------------------------------------------------------------------
+# Hunyuan3D model
+# ---------------------------------------------------------------------------
+[default.model]
+pretrained_id = "tencent/Hunyuan3D-2"
+# device: "auto" → use CUDA if available, else CPU
+device = "auto"
+
+# ---------------------------------------------------------------------------
+# Ngrok (optional tunnel)
+# ---------------------------------------------------------------------------
+[default.ngrok]
+enabled   = false
+authtoken = ""   # override in .secrets.toml or via env var
+
+# =============================================================================
+# Development overrides
+# =============================================================================
+[development]
+
+[development.app]
+debug = true
+
+[development.logging]
+level = "DEBUG"
+
+[development.server]
+reload = true
+
+# =============================================================================
+# Production overrides
+# =============================================================================
+[production]
+
+[production.logging]
+level = "WARNING"
+
+[production.server]
+workers = 4
