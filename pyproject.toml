@@ -23,6 +23,7 @@ dependencies = [
     "pyngrok>=7.2.0",
     # hy3dgen is NOT on PyPI — installed separately from Hunyuan3D-2 source.
     # See Dockerfile or install.sh for setup instructions.
+    "pre-commit>=4.6.0",
 ]
 
 [project.optional-dependencies]
